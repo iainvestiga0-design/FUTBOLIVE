@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="FUTBOLIVE: fútbol internacional, programación y contenido deportivo.">
+  <title>FUTBOLIVE | El fútbol en vivo</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="FUTBOLIVE inicio"><span class="brand-mark">F</span> FUTBO<span class="red">LIVE</span></a>
+    <nav class="desktop-nav">
+      <a class="active" href="#inicio">Inicio</a>
+      <a href="#partidos">Partidos</a>
+      <a href="#ligas">Competiciones</a>
+      <a href="#premium">Premium</a>
+    </nav>
+    <div class="top-actions">
+      <button class="ghost" id="loginBtn">Iniciar sesión</button>
+      <a class="button small" href="#premium">Ver planes</a>
+      <button class="menu-toggle" id="menuToggle" aria-label="Abrir menú">☰</button>
+    </div>
+  </header>
+
+  <nav class="mobile-nav" id="mobileNav">
+    <a href="#inicio">Inicio</a><a href="#partidos">Partidos</a>
+    <a href="#ligas">Competiciones</a><a href="#premium">Premium</a>
+  </nav>
+
+  <main>
+    <section class="hero" id="inicio">
+      <div class="hero-shade"></div>
+      <div class="hero-content">
+        <span class="eyebrow"><span class="pulse"></span> TU CASA DEL FÚTBOL INTERNACIONAL</span>
+        <h1>EL FÚTBOL<br><span class="red">NO SE DETIENE.</span></h1>
+        <p>Encuentra programación, actualidad y contenido futbolístico de todo el mundo en un solo lugar.</p>
+        <div class="hero-buttons">
+          <a class="button" href="#partidos">Explorar partidos <span>→</span></a>
+          <a class="button outline" href="#premium">Conocer Premium</a>
+        </div>
+        <p class="micro">Las transmisiones estarán disponibles únicamente cuando FUTBOLIVE cuente con autorización para emitirlas.</p>
+      </div>
+      <div class="hero-bottom"><span>FÚTBOL · PASIÓN · MUNDO</span><span>01 / FUTBOLIVE</span></div>
+    </section>
+
+    <section class="section" id="partidos">
+      <div class="section-heading">
+        <div><span class="eyebrow">NO TE PIERDAS NADA</span><h2>Agenda <span class="red">de fútbol</span></h2></div>
+        <span class="section-note">Ejemplos de diseño · No son fixtures reales</span>
+      </div>
+      <div class="filters" role="group" aria-label="Filtrar competiciones">
+        <button class="filter active" data-filter="todos">Todos</button>
+        <button class="filter" data-filter="europa">Europa</button>
+        <button class="filter" data-filter="america">América</button>
+        <button class="filter" data-filter="selecciones">Selecciones</button>
+      </div>
+      <div class="match-grid" id="matchGrid">
+        <article class="match-card" data-region="europa">
+          <div class="match-meta"><span>EUROPA · EJEMPLO</span><span class="status">PROGRAMACIÓN DEMO</span></div>
+          <div class="teams"><div><div class="crest">R</div><b>Real Madrid</b></div><span class="vs">VS</span><div><div class="crest">B</div><b>Barcelona</b></div></div>
+          <div class="match-footer"><span>Clásico · Fecha por confirmar</span><span class="lock">◉ Información</span></div>
+        </article>
+        <article class="match-card" data-region="europa">
+          <div class="match-meta"><span>EUROPA · EJEMPLO</span><span class="status">PROGRAMACIÓN DEMO</span></div>
+          <div class="teams"><div><div class="crest">M</div><b>Manchester City</b></div><span class="vs">VS</span><div><div class="crest">L</div><b>Liverpool</b></div></div>
+          <div class="match-footer"><span>Premier League · Fecha por confirmar</span><span class="lock">◉ Información</span></div>
+        </article>
+        <article class="match-card" data-region="america">
+          <div class="match-meta"><span>SUDAMÉRICA · EJEMPLO</span><span class="status">PROGRAMACIÓN DEMO</span></div>
+          <div class="teams"><div><div class="crest">F</div><b>Flamengo</b></div><span class="vs">VS</span><div><div class="crest">B</div><b>Boca Juniors</b></div></div>
+          <div class="match-footer"><span>Competición continental · Fecha por confirmar</span><span class="lock">◉ Información</span></div>
+        </article>
+        <article class="match-card" data-region="selecciones">
+          <div class="match-meta"><span>INTERNACIONAL · EJEMPLO</span><span class="status">PROGRAMACIÓN DEMO</span></div>
+          <div class="teams"><div><div class="crest">A</div><b>Argentina</b></div><span class="vs">VS</span><div><div class="crest">P</div><b>Perú</b></div></div>
+          <div class="match-footer"><span>Selecciones · Fecha por confirmar</span><span class="lock">◉ Información</span></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="leagues section" id="ligas">
+      <div class="section-heading"><div><span class="eyebrow">EL FÚTBOL DEL MUNDO</span><h2>Grandes <span class="red">competiciones</span></h2></div></div>
+      <div class="league-grid">
+        <div class="league"><span>🏆</span><b>Champions League</b><small>Europa</small></div>
+        <div class="league"><span>🌍</span><b>Premier League</b><small>Inglaterra</small></div>
+        <div class="league"><span>⚽</span><b>LaLiga</b><small>España</small></div>
+        <div class="league"><span>🏆</span><b>Copa Libertadores</b><small>Sudamérica</small></div>
+        <div class="league"><span>🌎</span><b>Serie A</b><small>Italia</small></div>
+        <div class="league"><span>🇵🇪</span><b>Fútbol peruano</b><small>Perú</small></div>
+      </div>
+    </section>
+
+    <section class="premium section" id="premium">
+      <div class="premium-copy">
+        <span class="eyebrow">MUY PRONTO</span>
+        <h2>Vive el fútbol<br><span class="red">a otro nivel.</span></h2>
+        <p>Estamos preparando FUTBOLIVE Premium. Los planes y beneficios se anunciarán cuando estén listos.</p>
+      </div>
+      <div class="premium-panel">
+        <span class="crown">✦</span><h3>FUTBOLIVE <span class="red">PREMIUM</span></h3>
+        <p>Contenido exclusivo y futuras transmisiones licenciadas.</p>
+        <button class="button" id="notifyBtn">Quiero conocer las novedades</button>
+        <small>Sin cobros ni suscripciones activas en esta versión de prueba.</small>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <a class="brand" href="#"><span class="brand-mark">F</span> FUTBO<span class="red">LIVE</span></a>
+    <p>Fútbol internacional. Una nueva forma de vivirlo.</p>
+    <small>© 2026 FUTBOLIVE · Prototipo en desarrollo. Las marcas y competiciones pertenecen a sus respectivos titulares.</small>
+  </footer>
+
+  <dialog id="infoDialog">
+    <button class="dialog-close" id="closeDialog" aria-label="Cerrar">×</button>
+    <span class="eyebrow">FUTBOLIVE</span>
+    <h3 id="dialogTitle">Próximamente</h3>
+    <p id="dialogText">Esta función estará disponible en una siguiente etapa del proyecto.</p>
+    <button class="button" id="okDialog">Entendido</button>
+  </dialog>
+  <script src="app.js"></script>
+</body>
+</html>
