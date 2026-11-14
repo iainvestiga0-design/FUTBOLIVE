@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080b10">
+  <meta name="description" content="FUTBOLIVE: partidos, resultados y tablas del fútbol internacional y local.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FUTBOLIVE">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@1,700;1,800;1,900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <title>FUTBOLIVE | El fútbol en vivo</title>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="FUTBOLIVE inicio">
+      <img src="/icons/icon-192.png" alt="" width="34" height="34">
+      <span>FUTBO<b>LIVE</b></span>
+    </a>
+    <div class="top-actions">
+      <button class="icon-btn" id="refreshBtn" aria-label="Actualizar">↻</button>
+      <button class="icon-btn" id="loginBtn" aria-label="Mi cuenta">👤</button>
+    </div>
+  </header>
+
+  <div class="banner" id="banner" hidden></div>
+
+  <main>
+    <!-- INICIO -->
+    <section class="view active" id="view-inicio">
+      <div class="hero">
+        <span class="eyebrow"><i class="pulse"></i> TODO EL FÚTBOL, EN UN SOLO LUGAR</span>
+        <h1>Vive el fútbol<br><em>sin límites.</em></h1>
+        <p>Marcadores, programación y tablas de las mejores ligas de Europa y América.</p>
+      </div>
+
+      <div class="block-title"><h2><span class="bar"></span>En vivo ahora</h2></div>
+      <div class="list" id="liveList"></div>
+
+      <div class="block-title"><h2><span class="bar"></span>Partidos de hoy</h2></div>
+      <div class="list" id="todayList"></div>
+
+      <div class="block-title"><h2><span class="bar"></span>Competiciones</h2></div>
+      <div class="league-grid" id="leagueGrid"></div>
+
+      <div class="premium-card">
+        <span class="crown">♛</span>
+        <h3>Hazte <em>Premium</em></h3>
+        <p>Pronto: contenido exclusivo y avisos de tus equipos.</p>
+        <button class="btn gold" data-info="premium">Quiero las novedades</button>
+      </div>
+    </section>
+
+    <!-- PARTIDOS -->
+    <section class="view" id="view-partidos">
+      <div class="seg" id="whenSeg" role="tablist">
+        <button class="seg-btn active" data-when="upcoming">Próximos</button>
+        <button class="seg-btn" data-when="results">Resultados</button>
+        <button class="seg-btn" data-when="live">En vivo</button>
+      </div>
+      <div class="chips" id="regionChips">
+        <button class="chip active" data-region="todos">Todos</button>
+        <button class="chip" data-region="europa">Europa</button>
+        <button class="chip" data-region="america">América</button>
+      </div>
+      <div class="chips" id="leagueChips"></div>
+      <div class="list" id="matchList"></div>
+    </section>
+
+    <!-- TABLAS -->
+    <section class="view" id="view-tablas">
+      <div class="chips" id="tableChips"></div>
+      <div id="tableBox"></div>
+    </section>
+
+    <!-- PREMIUM -->
+    <section class="view" id="view-premium">
+      <div class="premium-card big">
+        <span class="crown">♛</span>
+        <h3>FUTBOLIVE <em>PREMIUM</em></h3>
+        <p>Estamos preparando contenido exclusivo y futuras transmisiones licenciadas.</p>
+        <button class="btn gold" data-info="premium">Quiero conocer las novedades</button>
+        <small>Sin cobros ni suscripciones activas en esta versión de prueba.</small>
+      </div>
+      <p class="legal">Las transmisiones de video estarán disponibles únicamente cuando FUTBOLIVE cuente con autorización para emitirlas. Las marcas, escudos y competiciones pertenecen a sus respectivos titulares.</p>
+    </section>
+  </main>
+
+  <nav class="tabbar" id="tabbar">
+    <button class="tab active" data-view="inicio"><span>🏠</span>Inicio</button>
+    <button class="tab" data-view="partidos"><span>⚽</span>Partidos</button>
+    <button class="tab" data-view="tablas"><span>📊</span>Tablas</button>
+    <button class="tab" data-view="premium"><span>♛</span>Premium</button>
+  </nav>
+
+  <dialog id="infoDialog">
+    <button class="dialog-close" id="closeDialog" aria-label="Cerrar">×</button>
+    <span class="eyebrow">FUTBOLIVE</span>
+    <h3 id="dialogTitle">Próximamente</h3>
+    <p id="dialogText"></p>
+    <button class="btn" id="okDialog">Entendido</button>
+  </dialog>
+
+  <script src="/app.js"></script>
+</body>
+</html>
