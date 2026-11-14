@@ -79,22 +79,23 @@ def _kickoff(ev: dict) -> str | None:
     return f"{d}T{t}Z" if d else None
 
 
+LIVE_LABELS = {"1h": "1.er tiempo", "2h": "2.º tiempo", "ht": "Descanso", "et": "Prórroga", "bt": "Descanso",
+               "p": "Penales", "pen_live": "Penales", "live": None}
+
+
 def _status(ev: dict, kickoff: str | None) -> tuple[str, str | None]:
     raw = (ev.get("strStatus") or "").strip().lower()
     if raw in {"match finished", "ft", "aet", "pen", "after extra time", "finished"}:
         return "FT", None
-    if raw in {"not started", "ns", "", "scheduled"}:
+    if raw in {"not started", "ns", "", "scheduled", "tbd"}:
         has_score = ev.get("intHomeScore") not in (None, "")
-        if not has_score:
-            return "NS", None
-        return "FT", None
-    if raw in {"postponed", "pst", "cancelled", "canceled", "abandoned"}:
+        return ("FT", None) if has_score else ("NS", None)
+    if raw in {"postponed", "pst", "cancelled", "canceled", "abandoned", "susp", "canc", "abd"}:
         return "PST", None
-    if raw == "ht":
-        return "LIVE", "ET"  # entretiempo
-    # 1H, 2H, ET, minutos tipo "45", etc.
     prog = ev.get("strProgress")
-    return "LIVE", (f"{prog}'" if prog else None)
+    if prog:
+        return "LIVE", f"{prog}'"
+    return "LIVE", LIVE_LABELS.get(raw)
 
 
 def _normalize_event(ev: dict, slug: str) -> dict | None:
@@ -135,7 +136,41 @@ async def _round_events(client, slug: str, lid: int, season: str, rnd: int) -> l
     return events
 
 
+async def _day_events(client, slug: str, lid: int, day: str, final_ttl_ok: bool) -> list[dict]:
+    key = ("day", slug, day)
+    hit = _memo.get(key)
+    if hit and time.monotonic() - hit[0] < hit[2]:
+        return hit[1]
+    data = await _get(client, "eventsday", d=day, l=lid)
+    events = [m for ev in (data.get("events") or []) if (m := _normalize_event(ev, slug)) and m["kickoff"]]
+    done = events and all(_is_final(m) for m in events)
+    ttl = 21600 if (done and final_ttl_ok) else (120 if not events or not done else 600)
+    _memo[key] = (time.monotonic(), events, ttl)
+    return events
+
+
+async def _fetch_by_day(client, slug: str) -> list[dict]:
+    """Competiciones sin jornadas (amistosos): se piden por día, de hace 2 días a 4 días adelante."""
+    from datetime import timedelta
+    lid = BY_SLUG[slug]["sportsdb_id"]
+    today = datetime.now(timezone.utc).date()
+    by_id, errors, ok = {}, [], 0
+    for off in range(-2, 5):
+        day = today + timedelta(days=off)
+        try:
+            for m in await _day_events(client, slug, lid, day.isoformat(), final_ttl_ok=off < 0):
+                by_id[m["id"]] = m
+            ok += 1
+        except ProviderError as e:
+            errors.append(str(e))
+    if not ok:
+        raise ProviderError("; ".join(errors))
+    return sorted(by_id.values(), key=lambda m: m["kickoff"])
+
+
 async def fetch_matches(client: httpx.AsyncClient, slug: str) -> list[dict]:
+    if BY_SLUG[slug].get("by_day"):
+        return await _fetch_by_day(client, slug)
     """Último y próximo partido (siempre) + jornadas vecinas completas (si la liga usa jornadas)."""
     lid = BY_SLUG[slug]["sportsdb_id"]
     info = _memo.get(("info", slug))

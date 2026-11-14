@@ -16,14 +16,15 @@ LEAGUES = [
     {"slug": "ligue1", "name": "Ligue 1", "country": "Francia", "region": "europa", "icon": "🇫🇷", "sportsdb_id": 4334, "expect": "Ligue 1"},
     {"slug": "libertadores", "name": "Copa Libertadores", "country": "Sudamérica", "region": "america", "icon": "🌎", "sportsdb_id": 4501, "expect": "Libertadores"},
     {"slug": "betplay", "name": "Liga BetPlay", "country": "Colombia", "region": "america", "icon": "🇨🇴", "sportsdb_id": 4497, "expect": "Colombia"},
+    {"slug": "amistosos", "name": "Amistosos", "country": "Selecciones", "region": "selecciones", "icon": "🤝", "sportsdb_id": 4562, "expect": "Friendlies", "by_day": True, "table": False},
     {"slug": "liga1", "name": "Liga 1 Perú", "country": "Perú", "region": "america", "icon": "🇵🇪", "sportsdb_id": 4688, "expect": "Peru"},
 ]
 
 BY_SLUG = {l["slug"]: l for l in LEAGUES}
 
-REGIONS = {"todos": "Todos", "europa": "Europa", "america": "América"}
+REGIONS = {"todos": "Todos", "europa": "Europa", "america": "América", "selecciones": "Selecciones"}
 
 
 def public(league: dict) -> dict:
     """Versión de la liga que se expone en la API (sin datos internos)."""
-    return {k: league[k] for k in ("slug", "name", "country", "region", "icon")}
+    return {**{k: league[k] for k in ("slug", "name", "country", "region", "icon")}, "has_table": league.get("table", True)}

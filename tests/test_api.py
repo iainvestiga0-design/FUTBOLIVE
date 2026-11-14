@@ -193,3 +193,51 @@ def test_provider_retries_on_429(monkeypatch):
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
             return await providers._get(c, "eventsnextleague", id=1)
     assert asyncio.run(run()) == {"events": []} and calls["n"] == 3
+
+
+def test_friendlies_fetched_by_day_with_live_labels():
+    def handler(req):
+        ep = req.url.path.rsplit("/", 1)[-1]
+        assert ep == "eventsday.php" and req.url.params["l"] == "4562"
+        if req.url.params["d"] != "2026-11-14":
+            return httpx.Response(200, json={"events": None})
+        mk = lambda i, h, a, st, hs=None, as_=None, t="00:00:00": {
+            "idEvent": str(i), "strLeague": "International Friendlies", "strHomeTeam": h, "strAwayTeam": a,
+            "strStatus": st, "intHomeScore": hs, "intAwayScore": as_, "intRound": "0",
+            "strTimestamp": f"2026-11-14T{t}"}
+        return httpx.Response(200, json={"events": [
+            mk(1, "Colombia", "Chile", "2H", "1", "0"),
+            mk(2, "Peru", "Bolivia", "HT", "1", "0", "01:00:00"),
+            mk(3, "Japan", "Brazil", "NS", None, None, "10:15:00")]})
+
+    class FakeNow:
+        pass
+    from datetime import date as real_date
+    import app.providers as P
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
+            # fija "hoy" = 2026-11-14 para que el rango de días lo incluya
+            orig = P.datetime
+            class D(orig):
+                @classmethod
+                def now(cls, tz=None):
+                    return orig(2026, 11, 14, 3, 0, tzinfo=tz)
+            P.datetime = D
+            try:
+                return await P.fetch_matches(c, "amistosos")
+            finally:
+                P.datetime = orig
+    ms = {m["id"]: m for m in asyncio.run(run())}
+    assert ms["1"]["status"] == "LIVE" and ms["1"]["minute"] == "2.º tiempo" and ms["1"]["home"]["score"] == 1
+    assert ms["2"]["status"] == "LIVE" and ms["2"]["minute"] == "Descanso"
+    assert ms["3"]["status"] == "NS"
+
+
+def test_friendlies_in_catalog_without_table():
+    with TestClient(app) as c:
+        l = {x["slug"]: x for x in c.get("/api/leagues").json()["leagues"]}
+        assert l["amistosos"]["region"] == "selecciones" and l["amistosos"]["has_table"] is False
+        assert l["premier"]["has_table"] is True
+        eu = c.get("/api/matches", params={"region": "selecciones", "when": "all"}).json()["matches"]
+        assert eu and {m["league"] for m in eu} == {"amistosos"}

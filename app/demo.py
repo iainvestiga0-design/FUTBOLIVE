@@ -13,6 +13,7 @@ TEAMS = {
     "ligue1": ["Marseille", "Lyon", "Monaco", "Lille", "Nice", "Rennes", "Lens", "Nantes"],
     "libertadores": ["Flamengo", "Boca Juniors", "River Plate", "Palmeiras", "Nacional", "Peñarol", "Atlético Nacional", "LDU Quito"],
     "betplay": ["Millonarios", "Nacional", "Junior", "América de Cali", "Santa Fe", "Once Caldas", "Tolima", "Medellín"],
+    "amistosos": ["Colombia", "Chile", "Perú", "Bolivia", "Argentina", "Uruguay", "Brasil", "Japón"],
     "liga1": ["Alianza Lima", "Universitario", "Sporting Cristal", "Cienciano", "Melgar", "Cusco FC", "Garcilaso", "Binacional"],
 }
 

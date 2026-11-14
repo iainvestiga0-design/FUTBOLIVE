@@ -125,7 +125,7 @@ async function loadMatches() {
 
 function leagueChips(box, selected, onPick, withAll) {
   box.replaceChildren();
-  const list = state.leagues.filter((l) => state.region === "todos" || withAll === false || l.region === state.region);
+  const list = state.leagues.filter((l) => withAll === false ? l.has_table : (state.region === "todos" || l.region === state.region));
   const mk = (slug, label) => h("button", { class: "chip" + (slug === selected ? " active" : ""), text: label, onclick: () => onPick(slug) });
   if (withAll) box.append(mk("all", "Todas"));
   for (const l of list) box.append(mk(l.slug, `${l.icon} ${l.name}`));
@@ -194,7 +194,7 @@ async function init() {
 
   try {
     const d = await api("leagues");
-    state.leagues = d.leagues; state.tableLeague = d.leagues[0].slug;
+    state.leagues = d.leagues; state.tableLeague = (d.leagues.find((l) => l.has_table) || d.leagues[0]).slug;
     $("#leagueGrid").replaceChildren(...d.leagues.map((l) => h("button", { class: "league", onclick: () => {
       state.league = l.slug; state.region = "todos"; state.when = "upcoming";
       $$("#whenSeg .seg-btn").forEach((x) => x.classList.toggle("active", x.dataset.when === "upcoming"));
