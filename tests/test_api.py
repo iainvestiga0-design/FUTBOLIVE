@@ -2,12 +2,21 @@ import asyncio
 import os
 
 os.environ["DATA_MODE"] = "demo"
+os.environ["MIN_INTERVAL"] = "0"
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from app import config, main, providers
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def _clean():
+    providers._memo.clear(); main.STORE.clear(); main._cache.clear()
+    yield
+    providers._memo.clear(); main.STORE.clear(); main._cache.clear()
 
 
 def test_health_and_leagues():
@@ -106,17 +115,68 @@ def test_season_format():
 
 def test_failed_league_is_reported_and_never_filled_with_fake_data(monkeypatch):
     monkeypatch.setattr(config, "DATA_MODE", "auto")
-    main._cache.clear()
 
     async def boom(*a, **k):
         raise providers.ProviderError("HTTP 429")
     monkeypatch.setattr(providers, "fetch_matches", boom)
     with TestClient(app) as c:
+        asyncio.run(main.refresh_league("premier"))  # simula una vuelta del refresco
         r = c.get("/api/matches", params={"league": "premier", "when": "all"}).json()
         assert r["source"] == "live" and r["count"] == 0
         assert r["unavailable"] == ["premier"] and "429" in r["errors"]["premier"]
         assert not any(m["id"].startswith("demo") for m in r["matches"])
-    main._cache.clear()
+
+
+def test_not_yet_loaded_league_is_reported_as_loading(monkeypatch):
+    monkeypatch.setattr(config, "DATA_MODE", "auto")
+
+    async def idle():
+        pass
+    monkeypatch.setattr(main, "refresher", idle)
+    with TestClient(app) as c:
+        r = c.get("/api/matches", params={"league": "laliga", "when": "all"}).json()
+        assert r["loading"] == ["laliga"] and r["unavailable"] == [] and r["count"] == 0
+
+
+def test_rounds_give_full_matchdays_and_finished_rounds_are_cached():
+    calls = []
+
+    def ev(i, rnd, status, h=None, a=None):
+        return {"idEvent": str(i), "strLeague": "English Premier League", "strSeason": "2026-2027",
+                "strHomeTeam": f"H{i}", "strAwayTeam": f"A{i}", "intRound": str(rnd), "strStatus": status,
+                "intHomeScore": h, "intAwayScore": a, "strTimestamp": f"2026-11-{rnd:02d}T15:00:00"}
+
+    def handler(req):
+        ep = req.url.path.rsplit("/", 1)[-1]
+        calls.append((ep, req.url.params.get("r")))
+        if ep == "eventspastleague.php":
+            return httpx.Response(200, json={"events": [ev(100, 10, "FT", "1", "0")]})
+        if ep == "eventsnextleague.php":
+            return httpx.Response(200, json={"events": [ev(200, 11, "NS")]})
+        if ep == "eventsround.php":
+            r = int(req.url.params["r"])
+            if r == 11:
+                return httpx.Response(200, json={"events": [ev(210 + k, 11, "NS") for k in range(10)]})
+            if r in (9, 10):
+                return httpx.Response(200, json={"events": [ev(r * 10 + k, r, "FT", "2", "1") for k in range(10)]})
+            return httpx.Response(200, json={"events": None})
+        return httpx.Response(404)
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
+            first = await providers.fetch_matches(c, "premier")
+            n_after_first = len(calls)
+            await providers.fetch_matches(c, "premier")
+            return first, n_after_first, len(calls)
+    first, n1, n2 = asyncio.run(run())
+    assert sum(m["status"] == "FT" for m in first) >= 20 and sum(m["status"] == "NS" for m in first) >= 10
+    assert len({m["id"] for m in first}) == len(first)  # sin duplicados
+    rounds_asked = sorted(r for ep, r in calls if ep == "eventsround.php")
+    assert rounds_asked == ["10", "11", "12", "9"] or set(rounds_asked) == {"9", "10", "11", "12"}
+    # 2.ª vuelta: no repite jornadas terminadas (9, 10) ni la consulta de arranque
+    again = [(ep, r) for ep, r in calls[n1:]]
+    assert ("eventsround.php", "9") not in again and ("eventsround.php", "10") not in again
+    assert ("eventspastleague.php", None) not in again
 
 
 def test_provider_retries_on_429(monkeypatch):

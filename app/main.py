@@ -34,10 +34,34 @@ def store(key: str, value):
     return value
 
 
+# Datos por liga, mantenidos al día por una tarea en segundo plano:
+# las peticiones de los usuarios NUNCA esperan al proveedor.
+STORE: dict[str, dict] = {}
+
+
+async def refresh_league(slug: str):
+    try:
+        data = await providers.fetch_matches(app.state.client, slug)
+        STORE[slug] = {"matches": data, "error": None, "ts": time.time()}
+    except providers.ProviderError as e:
+        old = STORE.get(slug, {})
+        STORE[slug] = {"matches": old.get("matches", []), "error": str(e), "ts": old.get("ts", 0)}
+
+
+async def refresher():
+    while True:
+        for lg in LEAGUES:
+            await refresh_league(lg["slug"])
+        await asyncio.sleep(config.REFRESH_PAUSE)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.client = httpx.AsyncClient(headers={"User-Agent": "FUTBOLIVE/1.0"})
+    task = asyncio.create_task(refresher()) if config.DATA_MODE != "demo" else None
     yield
+    if task:
+        task.cancel()
     await app.state.client.aclose()
 
 
@@ -49,21 +73,16 @@ def _check_league(slug: str):
         raise HTTPException(404, f"Liga desconocida: {slug}")
 
 
-async def _league_matches(slug: str) -> tuple[list[dict], bool, str | None]:
-    """Devuelve (partidos, es_demo, error). Nunca mezcla datos de ejemplo con reales:
-    si una liga falla, queda vacía y se informa en `unavailable`."""
+def _league_matches(slug: str) -> tuple[list[dict], bool, str | None]:
+    """Devuelve (partidos, es_demo, estado). estado: None=ok, 'cargando' o el error."""
     if config.DATA_MODE == "demo":
         return demo.matches(slug), True, None
-    key = f"m:{slug}"
-    if (hit := cached(key)) is not None:
-        return hit
-    if (hit := cached(f"e:{slug}", ttl=30)) is not None:  # falló hace poco: no insistir ya mismo
-        return hit
-    try:
-        data = await providers.fetch_matches(app.state.client, slug)
-        return store(key, (data, False, None))
-    except providers.ProviderError as e:
-        return store(f"e:{slug}", ([], False, str(e)))
+    entry = STORE.get(slug)
+    if entry is None:
+        return [], False, "cargando"
+    if not entry["matches"] and entry["error"]:
+        return [], False, entry["error"]
+    return entry["matches"], False, None
 
 
 def _day_bounds():
@@ -99,16 +118,9 @@ async def matches(
     else:
         slugs = [l["slug"] for l in LEAGUES if region in ("todos", l["region"])]
 
-    sem = asyncio.Semaphore(2)
-
-    async def one(s):
-        async with sem:
-            return s, await _league_matches(s)
-
-    results = await asyncio.gather(*(one(s) for s in slugs))
-
     items, demo_leagues, errors = [], [], {}
-    for slug, (data, is_demo, err) in results:
+    for slug in slugs:
+        data, is_demo, err = _league_matches(slug)
         items.extend(data)
         if is_demo:
             demo_leagues.append(slug)
@@ -135,7 +147,8 @@ async def matches(
     return {
         "source": "demo" if demo_leagues else "live",
         "demo_leagues": demo_leagues,
-        "unavailable": list(errors),
+        "loading": [k for k, v in errors.items() if v == "cargando"],
+        "unavailable": [k for k, v in errors.items() if v != "cargando"],
         "errors": errors,
         "count": len(items),
         "matches": items,
@@ -149,7 +162,7 @@ async def standings(league: str):
     if config.DATA_MODE == "demo":
         return {"source": "demo", "league": public(BY_SLUG[league]), "table": demo.standings(league)}
     key = f"s:{league}"
-    if (hit := cached(key)) is not None:
+    if (hit := cached(key, ttl=600)) is not None:
         return hit
     try:
         table = await providers.fetch_standings(app.state.client, league)
@@ -160,7 +173,7 @@ async def standings(league: str):
     except providers.ProviderError as e:
         resp = {"source": "live", "league": public(BY_SLUG[league]), "table": [],
                 "note": "No pudimos cargar la tabla ahora. Intenta de nuevo en un minuto.", "error": str(e)}
-        _cache[key] = (time.time() - config.CACHE_TTL + 20, resp)  # reintento a los ~20 s
+        _cache[key] = (time.time() - 600 + 20, resp)  # reintento a los ~20 s
         return resp
 
 

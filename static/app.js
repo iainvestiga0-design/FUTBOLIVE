@@ -90,10 +90,14 @@ function setBanner(data, error) {
   } else if (data && data.source === "demo") {
     b.className = "banner"; b.hidden = false;
     b.textContent = "Modo demostración: estos partidos son de ejemplo, no reales.";
-  } else if (data && data.unavailable && data.unavailable.length) {
-    const names = data.unavailable.map((s) => (state.leagues.find((l) => l.slug === s) || {}).name || s);
+  } else if (data && ((data.loading && data.loading.length) || (data.unavailable && data.unavailable.length))) {
+    const nm = (list) => list.map((x) => (state.leagues.find((l) => l.slug === x) || {}).name || x).join(", ");
     b.className = "banner"; b.hidden = false;
-    b.textContent = "Sin datos por ahora de: " + names.join(", ") + ". Reintentamos en unos segundos.";
+    b.textContent = data.loading && data.loading.length
+      ? "Cargando datos de: " + nm(data.loading) + ". La primera vez tarda un par de minutos."
+      : "Sin datos por ahora de: " + nm(data.unavailable) + ". Reintentamos en unos segundos.";
+    clearTimeout(state.retry);
+    state.retry = setTimeout(() => { if (!document.hidden) refresh(); }, 20000);
   } else b.hidden = true;
 }
 

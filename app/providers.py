@@ -6,6 +6,7 @@ mañana cambias de proveedor solo se toca este archivo.
 from datetime import datetime, timezone
 
 import asyncio
+import time
 
 import httpx
 
@@ -27,12 +28,30 @@ def current_season(slug: str, now: datetime | None = None) -> str:
     return f"{start}-{start + 1}"
 
 
+_lock = asyncio.Lock()
+_last = 0.0
+_memo: dict = {}  # cachés de rondas y de números de ronda (se limpia al reiniciar)
+
+
+async def _throttle():
+    """Espacia las peticiones al proveedor (límite de la llave gratuita)."""
+    global _last
+    if config.MIN_INTERVAL <= 0:
+        return
+    async with _lock:
+        wait = _last + config.MIN_INTERVAL - time.monotonic()
+        if wait > 0:
+            await asyncio.sleep(wait)
+        _last = time.monotonic()
+
+
 async def _get(client: httpx.AsyncClient, endpoint: str, **params) -> dict:
     """GET con hasta 3 intentos (el plan gratuito responde 429 si se pide muy rápido)."""
     url = f"{config.SPORTSDB_BASE}/{config.SPORTSDB_KEY}/{endpoint}.php"
     last = None
     for attempt in range(3):
         try:
+            await _throttle()
             r = await client.get(url, params=params, timeout=config.HTTP_TIMEOUT)
             if r.status_code == 429 or r.status_code >= 500:
                 last = f"HTTP {r.status_code}"
@@ -99,19 +118,54 @@ def _normalize_event(ev: dict, slug: str) -> dict | None:
     }
 
 
+def _is_final(m: dict) -> bool:
+    return m["status"] in ("FT", "PST")
+
+
+async def _round_events(client, slug: str, lid: int, season: str, rnd: int) -> list[dict]:
+    """Partidos de una jornada. Las jornadas terminadas se guardan 6 h; las demás 2 min."""
+    key = ("round", slug, rnd)
+    hit = _memo.get(key)
+    if hit and time.monotonic() - hit[0] < hit[2]:
+        return hit[1]
+    data = await _get(client, "eventsround", id=lid, r=rnd, s=season)
+    events = [m for ev in (data.get("events") or []) if (m := _normalize_event(ev, slug)) and m["kickoff"]]
+    ttl = 21600 if events and all(_is_final(m) for m in events) else 120
+    _memo[key] = (time.monotonic(), events, ttl)
+    return events
+
+
 async def fetch_matches(client: httpx.AsyncClient, slug: str) -> list[dict]:
+    """Último y próximo partido (siempre) + jornadas vecinas completas (si la liga usa jornadas)."""
     lid = BY_SLUG[slug]["sportsdb_id"]
-    nxt = await _get(client, "eventsnextleague", id=lid)
-    past = await _get(client, "eventspastleague", id=lid)
-    events = (past.get("events") or []) + (nxt.get("events") or [])
-    seen, out = set(), []
-    for ev in events:
-        m = _normalize_event(ev, slug)
-        if m and m["kickoff"] and m["id"] not in seen:
-            seen.add(m["id"])
-            out.append(m)
-    out.sort(key=lambda m: m["kickoff"])
-    return out
+    info = _memo.get(("info", slug))
+    if not info or time.monotonic() - info["ts"] > 1800:
+        nxt = await _get(client, "eventsnextleague", id=lid)
+        past = await _get(client, "eventspastleague", id=lid)
+        past_ev, next_ev = past.get("events") or [], nxt.get("events") or []
+        pr = [r for ev in past_ev if (r := _int(ev.get("intRound")))]
+        nr = [r for ev in next_ev if (r := _int(ev.get("intRound")))]
+        season = next((ev.get("strSeason") for ev in past_ev + next_ev if ev.get("strSeason")), None) or current_season(slug)
+        rounds = set()
+        if pr:
+            rounds |= {max(pr) - 1, max(pr)}
+        if nr:
+            rounds |= {min(nr), min(nr) + 1}
+        info = {"ts": time.monotonic(), "season": season, "rounds": sorted(r for r in rounds if r >= 1),
+                "base": [m for ev in past_ev + next_ev if (m := _normalize_event(ev, slug)) and m["kickoff"]]}
+        _memo[("info", slug)] = info
+
+    by_id = {m["id"]: m for m in info["base"]}
+    errors = []
+    for rnd in info["rounds"]:
+        try:
+            for m in await _round_events(client, slug, lid, info["season"], rnd):
+                by_id[m["id"]] = m  # los de la jornada son más recientes que los del arranque
+        except ProviderError as e:
+            errors.append(str(e))
+    if errors and not by_id:
+        raise ProviderError("; ".join(errors))
+    return sorted(by_id.values(), key=lambda m: m["kickoff"])
 
 
 async def fetch_standings(client: httpx.AsyncClient, slug: str) -> list[dict]:
