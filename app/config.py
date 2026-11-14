@@ -1,9 +1,8 @@
 """Configuración leída de variables de entorno (ver .env.example)."""
 import os
 
-# auto  = intenta datos reales; si fallan, usa demostración (recomendado)
-# live  = solo datos reales (error 502 si el proveedor falla)
-# demo  = siempre datos de demostración (no usa internet)
+# auto / live = solo datos reales. Si una liga falla queda vacía y se avisa (nunca se inventan partidos)
+# demo        = datos de ejemplo, sin internet (solo para pruebas locales)
 DATA_MODE = os.getenv("DATA_MODE", "auto").lower()
 
 # TheSportsDB: la llave pública gratuita es "123". Si compras plan, pon tu llave aquí.

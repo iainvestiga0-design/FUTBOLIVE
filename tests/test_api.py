@@ -104,14 +104,32 @@ def test_season_format():
     assert providers.current_season("betplay", datetime(2026, 11, 13, tzinfo=timezone.utc)) == "2026"
 
 
-def test_auto_mode_falls_back_to_demo_when_provider_fails(monkeypatch):
+def test_failed_league_is_reported_and_never_filled_with_fake_data(monkeypatch):
     monkeypatch.setattr(config, "DATA_MODE", "auto")
     main._cache.clear()
 
     async def boom(*a, **k):
-        raise providers.ProviderError("sin internet")
+        raise providers.ProviderError("HTTP 429")
     monkeypatch.setattr(providers, "fetch_matches", boom)
     with TestClient(app) as c:
         r = c.get("/api/matches", params={"league": "premier", "when": "all"}).json()
-        assert r["source"] == "demo" and r["count"] > 0
+        assert r["source"] == "live" and r["count"] == 0
+        assert r["unavailable"] == ["premier"] and "429" in r["errors"]["premier"]
+        assert not any(m["id"].startswith("demo") for m in r["matches"])
     main._cache.clear()
+
+
+def test_provider_retries_on_429(monkeypatch):
+    calls = {"n": 0}
+
+    def handler(req):
+        calls["n"] += 1
+        return httpx.Response(429) if calls["n"] < 3 else httpx.Response(200, json={"events": []})
+
+    async def nosleep(_): pass
+    monkeypatch.setattr(providers.asyncio, "sleep", nosleep)
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
+            return await providers._get(c, "eventsnextleague", id=1)
+    assert asyncio.run(run()) == {"events": []} and calls["n"] == 3

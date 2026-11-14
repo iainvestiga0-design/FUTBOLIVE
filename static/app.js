@@ -87,11 +87,13 @@ function setBanner(data, error) {
   if (error) {
     b.className = "banner err"; b.hidden = false;
     b.textContent = "No se pudo conectar con el servidor. Mostrando lo último guardado, si hay.";
-  } else if (data && data.source !== "live") {
+  } else if (data && data.source === "demo") {
     b.className = "banner"; b.hidden = false;
-    b.textContent = data.source === "demo"
-      ? "Modo demostración: estos partidos son de ejemplo, no reales."
-      : "Algunas competiciones muestran datos de ejemplo porque el proveedor no respondió.";
+    b.textContent = "Modo demostración: estos partidos son de ejemplo, no reales.";
+  } else if (data && data.unavailable && data.unavailable.length) {
+    const names = data.unavailable.map((s) => (state.leagues.find((l) => l.slug === s) || {}).name || s);
+    b.className = "banner"; b.hidden = false;
+    b.textContent = "Sin datos por ahora de: " + names.join(", ") + ". Reintentamos en unos segundos.";
   } else b.hidden = true;
 }
 

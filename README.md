@@ -24,7 +24,7 @@ Necesitas Python 3.10 o superior.
 - **Mac/Linux:** `./run.sh`
 - **Windows:** doble clic en `run.bat`
 
-Abre `http://localhost:8000`. Sin tocar nada arranca en modo **auto**: intenta datos reales y, si no puede, muestra datos de ejemplo con un aviso amarillo.
+Abre `http://localhost:8000`. Arranca con datos reales. Sin internet usa `DATA_MODE=demo` para ver datos de ejemplo.
 
 ## 2. Probarla en tu celular (Android o iPhone)
 
@@ -65,7 +65,7 @@ El plan gratuito se "duerme" tras un rato sin visitas y la primera carga tarda u
 ## Datos
 
 - Fuente real: [TheSportsDB](https://www.thesportsdb.com) con su llave pública gratuita (`123`). Es una fuente comunitaria con límites: el plan gratuito devuelve pocos partidos por liga y puede tener retrasos, y **no es un marcador oficial en tiempo real**. Para marcadores en vivo fiables, más adelante conviene un plan de pago o un proveedor profesional (el cambio se hace solo en `app/providers.py`).
-- Modos (`DATA_MODE`): `auto` (real y, si falla, ejemplo), `live` (solo real), `demo` (solo ejemplo).
+- Modos (`DATA_MODE`): `auto`/`live` (solo datos reales; si una liga falla queda vacía y la app avisa cuál, nunca inventa partidos) y `demo` (datos de ejemplo, solo para pruebas sin internet: `DATA_MODE=demo ./run.sh`).
 - Los ids de liga están en `app/leagues.py`. Liga BetPlay (Colombia) y Liga 1 (Perú) fueron verificados contra el sitio; los de ligas europeas y Libertadores están sin verificar en vivo, y la app descarta cualquier resultado cuyo nombre de liga no coincida con el esperado.
 
 ## Probar el código

@@ -22,9 +22,9 @@ STATIC = Path(__file__).resolve().parent.parent / "static"
 _cache: dict[str, tuple[float, object]] = {}
 
 
-def cached(key: str):
+def cached(key: str, ttl: float | None = None):
     hit = _cache.get(key)
-    if hit and time.time() - hit[0] < config.CACHE_TTL:
+    if hit and time.time() - hit[0] < (config.CACHE_TTL if ttl is None else ttl):
         return hit[1]
     return None
 
@@ -49,21 +49,21 @@ def _check_league(slug: str):
         raise HTTPException(404, f"Liga desconocida: {slug}")
 
 
-async def _league_matches(slug: str) -> tuple[list[dict], bool]:
-    """Devuelve (partidos, es_demo)."""
+async def _league_matches(slug: str) -> tuple[list[dict], bool, str | None]:
+    """Devuelve (partidos, es_demo, error). Nunca mezcla datos de ejemplo con reales:
+    si una liga falla, queda vacía y se informa en `unavailable`."""
     if config.DATA_MODE == "demo":
-        return demo.matches(slug), True
+        return demo.matches(slug), True, None
     key = f"m:{slug}"
     if (hit := cached(key)) is not None:
         return hit
+    if (hit := cached(f"e:{slug}", ttl=30)) is not None:  # falló hace poco: no insistir ya mismo
+        return hit
     try:
         data = await providers.fetch_matches(app.state.client, slug)
-        return store(key, (data, False))
-    except providers.ProviderError:
-        if config.DATA_MODE == "live":
-            raise
-        # Falla breve: no reintentar de inmediato a cada petición
-        return store(key, (demo.matches(slug), True))
+        return store(key, (data, False, None))
+    except providers.ProviderError as e:
+        return store(f"e:{slug}", ([], False, str(e)))
 
 
 def _day_bounds():
@@ -99,22 +99,21 @@ async def matches(
     else:
         slugs = [l["slug"] for l in LEAGUES if region in ("todos", l["region"])]
 
-    sem = asyncio.Semaphore(4)
+    sem = asyncio.Semaphore(2)
 
     async def one(s):
         async with sem:
             return s, await _league_matches(s)
 
-    try:
-        results = await asyncio.gather(*(one(s) for s in slugs))
-    except providers.ProviderError as e:
-        raise HTTPException(502, f"Proveedor de datos no disponible: {e}")
+    results = await asyncio.gather(*(one(s) for s in slugs))
 
-    items, demo_leagues = [], []
-    for slug, (data, is_demo) in results:
+    items, demo_leagues, errors = [], [], {}
+    for slug, (data, is_demo, err) in results:
         items.extend(data)
         if is_demo:
             demo_leagues.append(slug)
+        if err:
+            errors[slug] = err
 
     start, end = _day_bounds()
     now = datetime.now(timezone.utc)
@@ -134,8 +133,10 @@ async def matches(
     items = [m for m in items if keep(m)]
     items.sort(key=lambda m: m["kickoff"], reverse=(when == "results"))
     return {
-        "source": "demo" if len(demo_leagues) == len(slugs) else ("mixed" if demo_leagues else "live"),
+        "source": "demo" if demo_leagues else "live",
         "demo_leagues": demo_leagues,
+        "unavailable": list(errors),
+        "errors": errors,
         "count": len(items),
         "matches": items,
         "updated": now.isoformat(),
@@ -153,14 +154,14 @@ async def standings(league: str):
     try:
         table = await providers.fetch_standings(app.state.client, league)
         resp = {"source": "live", "league": public(BY_SLUG[league]), "table": table}
-        if not table and config.DATA_MODE == "auto":
-            # Sin tabla publicada (p. ej. torneo por fases): mostrar vacío, no inventar
+        if not table:
             resp["note"] = "Tabla no disponible para esta competición."
         return store(key, resp)
     except providers.ProviderError as e:
-        if config.DATA_MODE == "live":
-            raise HTTPException(502, f"Proveedor de datos no disponible: {e}")
-        return store(key, {"source": "demo", "league": public(BY_SLUG[league]), "table": demo.standings(league)})
+        resp = {"source": "live", "league": public(BY_SLUG[league]), "table": [],
+                "note": "No pudimos cargar la tabla ahora. Intenta de nuevo en un minuto.", "error": str(e)}
+        _cache[key] = (time.time() - config.CACHE_TTL + 20, resp)  # reintento a los ~20 s
+        return resp
 
 
 # --- App web (PWA) ---

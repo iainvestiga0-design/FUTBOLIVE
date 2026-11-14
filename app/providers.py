@@ -5,6 +5,8 @@ mañana cambias de proveedor solo se toca este archivo.
 """
 from datetime import datetime, timezone
 
+import asyncio
+
 import httpx
 
 from . import config
@@ -26,13 +28,21 @@ def current_season(slug: str, now: datetime | None = None) -> str:
 
 
 async def _get(client: httpx.AsyncClient, endpoint: str, **params) -> dict:
+    """GET con hasta 3 intentos (el plan gratuito responde 429 si se pide muy rápido)."""
     url = f"{config.SPORTSDB_BASE}/{config.SPORTSDB_KEY}/{endpoint}.php"
-    try:
-        r = await client.get(url, params=params, timeout=config.HTTP_TIMEOUT)
-        r.raise_for_status()
-        return r.json() or {}
-    except (httpx.HTTPError, ValueError) as e:
-        raise ProviderError(f"{endpoint}: {e}") from e
+    last = None
+    for attempt in range(3):
+        try:
+            r = await client.get(url, params=params, timeout=config.HTTP_TIMEOUT)
+            if r.status_code == 429 or r.status_code >= 500:
+                last = f"HTTP {r.status_code}"
+            else:
+                r.raise_for_status()
+                return r.json() or {}
+        except (httpx.HTTPError, ValueError) as e:
+            last = f"{type(e).__name__}: {e}"
+        await asyncio.sleep(1.0 * (attempt + 1))
+    raise ProviderError(f"{endpoint} {params}: {last}")
 
 
 def _int(v):

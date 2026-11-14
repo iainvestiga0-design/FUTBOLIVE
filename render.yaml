@@ -9,6 +9,6 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: DATA_MODE
-        value: auto
+        value: live
       - key: PYTHON_VERSION
         value: 3.12.7
